@@ -43,14 +43,18 @@ app.use(cookieParser());
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getLocalIP() {
+function getDefaultBaseURL() {
+  if (process.env.RAILWAY_PUBLIC_DOMAIN)
+    return `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+  if (process.env.RENDER_EXTERNAL_URL)
+    return process.env.RENDER_EXTERNAL_URL;
   const ifaces = os.networkInterfaces();
   for (const name of Object.keys(ifaces)) {
     for (const iface of ifaces[name]) {
-      if (iface.family === 'IPv4' && !iface.internal) return iface.address;
+      if (iface.family === 'IPv4' && !iface.internal) return `http://${iface.address}:${PORT}`;
     }
   }
-  return 'localhost';
+  return `http://localhost:${PORT}`;
 }
 
 function getVoterToken(req, res) {
@@ -119,7 +123,7 @@ ${body}
 app.get('/', (req, res) => {
   const db       = loadDB();
   const sessions = [...db.sessions].reverse();
-  const localIP  = getLocalIP();
+  const localIP  = getDefaultBaseURL();
 
   const sessionCards = sessions.map(s => {
     const projectCount = db.projects.filter(p => p.session_id === s.id).length;
@@ -177,7 +181,7 @@ app.get('/', (req, res) => {
               </div>
               <div class="col-md-4">
                 <label class="form-label fw-semibold">Base URL for QR Codes</label>
-                <input type="text" name="base_url" class="form-control" value="http://${localIP}:${PORT}" required>
+                <input type="text" name="base_url" class="form-control" value="${localIP}" required>
                 <div class="form-text">Use your local network IP so phones can reach the server.</div>
               </div>
               <div class="col-md-4">
@@ -614,8 +618,7 @@ app.post('/vote/:projectId', (req, res) => {
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 app.listen(PORT, '0.0.0.0', () => {
-  const ip = getLocalIP();
   console.log('\n=== Senior Design Voter ===');
   console.log(`  Local:   http://localhost:${PORT}`);
-  console.log(`  Network: http://${ip}:${PORT}  <-- use this IP in the QR code URL field\n`);
+  console.log(`  Base URL: ${getDefaultBaseURL()}  <-- used for QR codes\n`);
 });
